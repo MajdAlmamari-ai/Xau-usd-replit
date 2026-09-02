@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "XAUUSD Smart Money Analyzer"
+description = "A professional price-action dashboard for XAUUSD using Smart Money Concepts and ICT methodology. It visualizes multi-timeframe market structure, liquidity zones, unmitigated order blocks, validated fair value gaps, risk controls, and BUY/SELL/WAIT scenarios."
+version = "1.0.0"
+id = "artifacts/xauusd-smart-money-analyzer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18263
+
+[services.development]
+run = "pnpm --filter @workspace/xauusd-smart-money-analyzer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/xauusd-smart-money-analyzer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/xauusd-smart-money-analyzer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18263"
+BASE_PATH = "/"

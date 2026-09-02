@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: market
+    description: Market data bridge and provenance
 paths:
   /healthz:
     get:
@@ -24,6 +26,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /market/bridge:
+    get:
+      operationId: getMarketBridge
+      tags: [market]
+      summary: Read the Spot to futures market bridge
+      description: Returns synchronized Spot XAUUSD and COMEX GC observations with explicit data freshness and unavailable-field states.
+      parameters:
+        - name: spotSymbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XAUUSD=X
+        - name: futuresSymbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: GC=F
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1d, 5d, 1mo]
+            default: 1d
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [5m, 15m, 1h]
+            default: 5m
+      responses:
+        "200":
+          description: Synchronized market bridge snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketBridge"
+        "502":
+          description: Upstream market data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +81,112 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+      required: [error, code]
+    MarketCandle:
+      type: object
+      properties:
+        timestamp:
+          type: number
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: ["number", "null"]
+      required: [timestamp, open, high, low, close, volume]
+    MarketLeg:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: ["number", "null"]
+        previousClose:
+          type: ["number", "null"]
+        change:
+          type: ["number", "null"]
+        changePercent:
+          type: ["number", "null"]
+        timestamp:
+          type: ["number", "null"]
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketCandle"
+        volume:
+          type: ["number", "null"]
+        openInterest:
+          type: ["number", "null"]
+      required: [symbol, price, previousClose, change, changePercent, timestamp, candles, volume, openInterest]
+    MarketBridge:
+      type: object
+      properties:
+        sourceMode:
+          type: string
+          enum: [live, partial, unavailable]
+        spot:
+          $ref: "#/components/schemas/MarketLeg"
+        futures:
+          $ref: "#/components/schemas/MarketLeg"
+        basis:
+          type: object
+          properties:
+            value:
+              type: ["number", "null"]
+            percent:
+              type: ["number", "null"]
+            futuresPremium:
+              type: boolean
+          required: [value, percent, futuresPremium]
+        leadLagMs:
+          type: ["number", "null"]
+        delta:
+          type: ["number", "null"]
+        imbalance:
+          type: object
+          properties:
+            buyPercent:
+              type: ["number", "null"]
+            sellPercent:
+              type: ["number", "null"]
+          required: [buyPercent, sellPercent]
+        freshness:
+          type: object
+          properties:
+            spotSeconds:
+              type: ["number", "null"]
+            futuresSeconds:
+              type: ["number", "null"]
+            status:
+              type: string
+              enum: [fresh, delayed, stale, unavailable]
+          required: [spotSeconds, futuresSeconds, status]
+        provenance:
+          type: object
+          properties:
+            spot:
+              type: string
+            futures:
+              type: string
+            delta:
+              type: string
+            openInterest:
+              type: string
+            cot:
+              type: string
+          required: [spot, futures, delta, openInterest, cot]
+        warning:
+          type: ["string", "null"]
+      required: [sourceMode, spot, futures, basis, leadLagMs, delta, imbalance, freshness, provenance, warning]
 

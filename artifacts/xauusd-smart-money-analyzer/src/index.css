@@ -336,6 +336,32 @@ h1 { font-size: clamp(22px, 2.3vw, 31px); line-height: 1; letter-spacing: -.05em
 .confluence-row > span { color: hsl(var(--muted-foreground)); }
 .confluence-row strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .confluence-row em { font-family: var(--app-font-mono); font-size: 8px; font-style: normal; text-align: right; }
+.replay-section { margin-top: 10px; padding: 17px 16px 16px; border: 1px solid hsl(var(--card-border)); border-radius: 9px; background: hsl(var(--card)); }
+.replay-heading { margin-bottom: 12px; }
+.replay-heading p { margin: 5px 0 0; color: hsl(var(--muted-foreground)); font-size: 10px; }
+.replay-actions { display: flex; align-items: center; gap: 8px; }
+.replay-controls { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; padding: 10px 0; border-top: 1px solid hsl(var(--border)); border-bottom: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; text-transform: uppercase; }
+.replay-controls input { width: 100%; accent-color: hsl(var(--primary)); }
+.replay-controls strong { color: hsl(var(--foreground)); font-size: 9px; white-space: nowrap; }
+.replay-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 10px; }
+.replay-stats > div { min-width: 0; padding: 10px; border: 1px solid hsl(var(--border)); border-radius: 5px; background: hsl(var(--secondary) / .35); }
+.replay-stats span, .replay-stats small { display: block; color: hsl(var(--muted-foreground)); font-size: 8px; }
+.replay-stats strong { display: block; font-family: var(--app-font-mono); font-size: 14px; margin: 8px 0 4px; }
+.replay-current { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border: 1px solid hsl(var(--primary) / .23); background: hsl(var(--primary) / .045); border-radius: 5px; }
+.replay-current strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.replay-current p { grid-column: 1 / -1; margin: 0; color: hsl(var(--muted-foreground)); font-size: 9px; line-height: 1.4; }
+.replay-table { margin-top: 10px; overflow-x: auto; border: 1px solid hsl(var(--border)); border-radius: 5px; }
+.replay-row { display: grid; grid-template-columns: 58px 1.25fr 1.15fr 68px 78px 42px; min-width: 620px; align-items: center; gap: 8px; padding: 9px 10px; border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; }
+.replay-row:first-child { border-top: 0; }
+.replay-row > span, .replay-row > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.replay-table-head { color: hsl(var(--primary)); border-top: 0; background: hsl(var(--secondary) / .35); text-transform: uppercase; font-size: 7px; letter-spacing: .06em; }
+.replay-decision { font-family: var(--app-font-mono); font-size: 8px; font-style: normal; }
+.replay-decision.buy { color: hsl(var(--accent)); }
+.replay-decision.sell { color: hsl(var(--destructive)); }
+.replay-decision.wait { color: hsl(var(--primary)); }
+.replay-footnote { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; margin-top: 10px; border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; }
+.replay-footnote span:first-child { color: hsl(var(--primary)); text-transform: uppercase; }
+.replay-footnote span:last-child { max-width: 72%; text-align: right; }
 
 @media (max-width: 1120px) {
   .intel-grid { grid-template-columns: 1fr; }
@@ -345,6 +371,13 @@ h1 { font-size: clamp(22px, 2.3vw, 31px); line-height: 1; letter-spacing: -.05em
   .basis-box { grid-column: 1 / -1; }
   .physics-signals { grid-template-columns: 1fr; }
   .source-strip span:last-child { margin-left: 0; width: 100%; }
+  .replay-heading { align-items: flex-start; }
+  .replay-actions { width: 100%; justify-content: flex-end; }
+  .replay-stats { grid-template-columns: repeat(2, 1fr); }
+  .replay-current { grid-template-columns: 1fr auto; }
+  .replay-current .read-label { grid-column: 1 / -1; }
+  .replay-footnote { flex-direction: column; gap: 5px; }
+  .replay-footnote span:last-child { max-width: none; text-align: left; }
   .flow-metrics { grid-template-columns: repeat(2, 1fr); }
   .flow-metric:nth-child(2) { border-right: 0; }
   .flow-metric:nth-child(n+3) { border-top: 1px solid hsl(var(--border)); }

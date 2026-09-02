@@ -1,5 +1,6 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type MarketBridge, useGetMarketBridge } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -91,6 +92,14 @@ const candleData = [
   [68, 74, 65, 80, 0], [74, 81, 70, 87, 0], [81, 86, 77, 92, 0], [86, 82, 75, 90, 1],
 ];
 
+function formatPrice(value: number | null | undefined) {
+  return typeof value === 'number' ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+}
+
+function formatNumber(value: number | null | undefined, digits = 0) {
+  return typeof value === 'number' ? value.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }) : 'Unavailable';
+}
+
 function Header({ live, onToggle, onRefresh, refreshing }: { live: boolean; onToggle: () => void; onRefresh: () => void; refreshing: boolean }) {
   return (
     <header className="topbar">
@@ -136,13 +145,17 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate: (item: st
   );
 }
 
-function SnapshotGrid() {
+function SnapshotGrid({ bridge }: { bridge?: MarketBridge }) {
+  const price = bridge?.spot.price ?? 2341.65;
+  const change = bridge?.spot.change;
+  const changePercent = bridge?.spot.changePercent;
+  const updated = bridge?.spot.timestamp ? new Date(bridge.spot.timestamp * 1000).toISOString().slice(11, 19) + ' UTC' : 'Demo fixture';
   return (
     <section className="snapshot-grid" aria-label="Market snapshot">
       <div className="panel snapshot" data-testid="card-market-snapshot">
         <div className="symbol-row"><span className="symbol">XAUUSD · SPOT GOLD</span><span className="market-badge">Market open</span></div>
-        <div><span className="price" data-testid="text-current-price">2,341.65</span><span className="change" data-testid="text-price-change">+18.42 · +0.79%</span></div>
-        <div className="snapshot-foot"><div><span className="mini-label">Session</span><span className="mini-value">London / NY</span></div><div><span className="mini-label">Updated</span><span className="mini-value">14:32:08 UTC</span></div></div>
+        <div><span className="price" data-testid="text-current-price">{formatPrice(price)}</span><span className={`change ${change !== null && change !== undefined && change < 0 ? 'bearish' : ''}`} data-testid="text-price-change">{change === null || change === undefined ? 'Demo snapshot' : `${change >= 0 ? '+' : ''}${change.toFixed(2)} · ${changePercent?.toFixed(2) ?? '—'}%`}</span></div>
+        <div className="snapshot-foot"><div><span className="mini-label">Session</span><span className="mini-value">London / NY</span></div><div><span className="mini-label">Updated</span><span className="mini-value">{updated}</span></div></div>
       </div>
       <div className="panel metric-card"><div className="metric-head"><span>Daily range</span><Activity /></div><div className="metric-value">2,326.80—<br />2,347.90</div><span className="metric-sub good">63% delivered</span></div>
       <div className="panel metric-card"><div className="metric-head"><span>Spread</span><Gauge /></div><div className="metric-value">0.18</div><span className="metric-sub good">Tight conditions</span></div>
@@ -225,32 +238,21 @@ function BiasPanel() {
   return <div className="panel detail-panel" data-testid="panel-timeframe-bias"><div className="section-head"><div className="section-title"><TrendingUp /> Multi-timeframe bias</div><span className="panel-kicker">Structure first</span></div>{biasData.map((item) => <div className="bias-row" key={item.timeframe}><span className="bias-tf">{item.timeframe}</span><div><div className={`bias-name ${item.bias === 'Bullish' ? 'bullish' : item.bias === 'Bearish' ? 'bearish' : 'gold'}`}>{item.bias} · {item.structure}</div><div className="bias-meta">{item.bos}</div><div className="bias-meter"><span style={{ width: `${item.confidence}%` }} /></div></div><span className="bias-score">{item.confidence}%</span></div>)}</div>;
 }
 
-function InstitutionalFlow({ live, onToggle }: { live: boolean; onToggle: () => void }) {
-  const flow = live
-    ? {
-        spot: '2,341.65',
-        futures: '2,343.10',
-        basis: '+1.45',
-        leadLag: 'GC leads spot · 420ms',
-        delta: '+18,420',
-        imbalance: '61 / 39',
-        openInterest: '482.6k',
-        volume: '186.4k',
-        priceOi: 'Up + OI up',
-        absorption: 'Offers at 2,347.90',
-      }
-    : {
-        spot: '2,341.65',
-        futures: '—',
-        basis: '—',
-        leadLag: 'Bridge paused',
-        delta: '—',
-        imbalance: '—',
-        openInterest: '—',
-        volume: '—',
-        priceOi: 'Unavailable',
-        absorption: 'Unavailable',
-      };
+function InstitutionalFlow({ live, onToggle, bridge, loading, failed }: { live: boolean; onToggle: () => void; bridge?: MarketBridge; loading: boolean; failed: boolean }) {
+  const connected = bridge?.sourceMode !== 'unavailable';
+  const status = !live ? 'Bridge paused' : loading ? 'Connecting' : failed ? 'Unavailable' : bridge?.freshness.status ?? 'Unavailable';
+  const flow = {
+    spot: connected ? formatPrice(bridge?.spot.price) : '—',
+    futures: connected ? formatPrice(bridge?.futures.price) : '—',
+    basis: connected && bridge?.basis.value !== null && bridge?.basis.value !== undefined ? `${bridge.basis.value >= 0 ? '+' : ''}$${formatPrice(bridge.basis.value)}` : '—',
+    leadLag: bridge?.leadLagMs === null || bridge?.leadLagMs === undefined ? 'Unavailable' : `GC leads spot · ${bridge.leadLagMs}ms`,
+    delta: bridge?.delta === null || bridge?.delta === undefined ? 'Unavailable' : bridge.delta.toLocaleString('en-US'),
+    imbalance: bridge?.imbalance.buyPercent === null || bridge?.imbalance.buyPercent === undefined ? 'Unavailable' : `${bridge.imbalance.buyPercent} / ${bridge.imbalance.sellPercent}`,
+    openInterest: bridge?.futures.openInterest === null || bridge?.futures.openInterest === undefined ? 'Unavailable' : formatNumber(bridge.futures.openInterest),
+    volume: bridge?.futures.volume === null || bridge?.futures.volume === undefined ? 'Unavailable' : formatNumber(bridge.futures.volume),
+    priceOi: bridge?.futures.openInterest === null || bridge?.futures.openInterest === undefined ? 'Cannot infer' : 'Observed',
+    absorption: bridge?.delta === null || bridge?.delta === undefined ? 'Unavailable' : 'Observed in tape',
+  };
 
   return <div className="panel flow-panel physics-panel" data-testid="panel-institutional-flow">
     <div className="section-head">
@@ -258,7 +260,7 @@ function InstitutionalFlow({ live, onToggle }: { live: boolean; onToggle: () => 
         <div className="section-title"><Activity /> Data physics bridge</div>
         <div className="panel-kicker flow-subtitle">Observable flow · Spot XAUUSD ↔ COMEX GC</div>
       </div>
-      <button className={`flow-source ${live ? 'active' : ''}`} onClick={onToggle} data-testid="button-toggle-flow-source"><span className="source-dot" />{live ? 'Bridge active' : 'Bridge paused'}</button>
+      <button className={`flow-source ${connected ? 'active' : ''}`} onClick={onToggle} data-testid="button-toggle-flow-source"><span className="source-dot" />{status}</button>
     </div>
 
     <div className="market-bridge">
@@ -275,28 +277,28 @@ function InstitutionalFlow({ live, onToggle }: { live: boolean; onToggle: () => 
       </div>
       <div className="basis-box">
         <span>Basis</span>
-        <strong className={live ? 'gold' : ''}>{live ? `+$${flow.basis}` : flow.basis}</strong>
-        <small>{live ? 'futures premium' : 'awaiting bridge'}</small>
+        <strong className={connected ? 'gold' : ''}>{flow.basis}</strong>
+        <small>{connected ? (bridge?.basis.futuresPremium ? 'futures premium' : 'spot premium') : 'awaiting bridge'}</small>
       </div>
     </div>
 
     <div className="flow-metrics physics-metrics">
       {[
-        { label: 'Cumulative delta', value: flow.delta, detail: live ? 'aggressive buyers' : 'source paused', tone: live ? 'bullish' : '' },
-        { label: 'Buy / sell imbalance', value: flow.imbalance, detail: live ? '+22% buy skew' : 'source paused', tone: live ? 'bullish' : '' },
-        { label: 'Open interest', value: flow.openInterest, detail: live ? '+1.8% session' : 'source paused', tone: live ? 'gold' : '' },
-        { label: 'Contract volume', value: flow.volume, detail: live ? 'rolling 4H' : 'source paused', tone: live ? 'gold' : '' },
+        { label: 'Cumulative delta', value: flow.delta, detail: bridge?.delta === null ? 'tape required' : 'centralized tape', tone: bridge?.delta !== null && bridge?.delta !== undefined ? 'bullish' : 'gold' },
+        { label: 'Buy / sell imbalance', value: flow.imbalance, detail: bridge?.imbalance.buyPercent === null ? 'tape required' : 'trade split', tone: bridge?.imbalance.buyPercent !== null && bridge?.imbalance.buyPercent !== undefined ? 'bullish' : 'gold' },
+        { label: 'Open interest', value: flow.openInterest, detail: bridge?.futures.openInterest === null ? 'OI feed required' : 'exchange reported', tone: bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'gold' : 'gold' },
+        { label: 'Contract volume', value: flow.volume, detail: bridge?.futures.volume === null ? 'upstream unavailable' : 'upstream reported', tone: bridge?.futures.volume !== null && bridge?.futures.volume !== undefined ? 'gold' : 'gold' },
       ].map((item) => <div className="flow-metric" key={item.label}><span>{item.label}</span><strong className={item.tone}>{item.value}</strong><small>{item.detail}</small></div>)}
     </div>
 
     <div className="physics-signals">
-      <div><span>Price × OI response</span><strong className={live ? 'bullish' : 'gold'}>{flow.priceOi}</strong><small>{live ? 'new long participation proxy' : 'cannot infer participation'}</small></div>
-      <div><span>Absorption / liquidity</span><strong className={live ? 'gold' : ''}>{flow.absorption}</strong><small>{live ? 'passive offer remains above price' : 'no live order-flow read'}</small></div>
-      <div><span>Lead / lag</span><strong className={live ? 'bullish' : 'gold'}>{flow.leadLag}</strong><small>{live ? 'futures impulse is leading' : 'bridge is not measuring lead-lag'}</small></div>
+      <div><span>Price × OI response</span><strong className={bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'bullish' : 'gold'}>{flow.priceOi}</strong><small>{bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'new participation proxy' : 'OI feed required'}</small></div>
+      <div><span>Absorption / liquidity</span><strong className={bridge?.delta !== null && bridge?.delta !== undefined ? 'gold' : ''}>{flow.absorption}</strong><small>{bridge?.delta !== null && bridge?.delta !== undefined ? 'derived from trade tape' : 'centralized tape required'}</small></div>
+      <div><span>Lead / lag</span><strong className={bridge?.leadLagMs !== null && bridge?.leadLagMs !== undefined ? 'bullish' : 'gold'}>{flow.leadLag}</strong><small>{bridge?.leadLagMs !== null && bridge?.leadLagMs !== undefined ? 'futures impulse is leading' : 'tick timestamps required'}</small></div>
     </div>
 
-    <div className="flow-read physics-read"><span className="read-label">Portfolio behavior proxy</span><p>{live ? 'GC trades at a premium to spot while positive delta and rising open interest arrive together. The model reads this as new-long participation and bullish pressure, not proof of a specific bank position.' : 'The Spot ↔ Futures bridge is paused. Do not infer institutional participation from candles alone; restore the feed before upgrading a scenario.'}</p><span className={`read-state ${live ? 'bullish' : 'gold'}`}>{live ? 'Constructive' : 'Unavailable'}</span></div>
-    <div className="source-strip"><span><Database size={12} /> Spot feed <b className={live ? 'bullish' : 'gold'}>{live ? 'fresh' : 'stale'}</b></span><span>COMEX GC <b className={live ? 'bullish' : 'gold'}>{live ? 'fresh' : 'paused'}</b></span><span>COT <b className="gold">weekly context</b></span><span>Not a direct view of bank books.</span></div>
+    <div className="flow-read physics-read"><span className="read-label">Portfolio behavior proxy</span><p>{bridge?.warning ?? 'The Spot ↔ Futures bridge is paused. Do not infer institutional participation from candles alone; restore the feed before upgrading a scenario.'}</p><span className={`read-state ${connected && bridge?.freshness.status === 'fresh' ? 'bullish' : 'gold'}`}>{connected ? bridge?.freshness.status : 'Unavailable'}</span></div>
+    <div className="source-strip"><span><Database size={12} /> Spot feed <b className={connected ? 'bullish' : 'gold'}>{connected ? `${bridge?.freshness.spotSeconds}s old` : 'stale'}</b></span><span>COMEX GC <b className={connected ? 'bullish' : 'gold'}>{connected ? `${bridge?.freshness.futuresSeconds}s old` : 'paused'}</b></span><span>COT <b className="gold">weekly context</b></span><span>{connected ? 'Prices live · flow fields explicit' : 'Not measuring upstream yet'}</span></div>
   </div>;
 }
 
@@ -323,18 +325,20 @@ function ScenarioSection({ selected, onSelect }: { selected: string; onSelect: (
   </section>;
 }
 
-function UnifiedConfluence({ scenarioId, flowLive }: { scenarioId: string; flowLive: boolean }) {
+function UnifiedConfluence({ scenarioId, flowLive, bridge }: { scenarioId: string; flowLive: boolean; bridge?: MarketBridge }) {
   const scenario = scenarios.find((item) => item.id === scenarioId) ?? scenarios[2];
-  const conflict = scenario.id === 'wait' || !flowLive;
-  const score = conflict ? (flowLive ? 64 : 42) : scenario.confidence;
+  const flowAvailable = flowLive && bridge?.sourceMode !== 'unavailable';
+  const conflict = scenario.id === 'wait' || !flowAvailable;
+  const score = conflict ? (flowAvailable ? 64 : 42) : scenario.confidence;
+  const basisText = bridge?.basis.value !== null && bridge?.basis.value !== undefined ? `${bridge.basis.value >= 0 ? '+' : ''}$${formatPrice(bridge.basis.value)} GC ${bridge.basis.futuresPremium ? 'premium' : 'discount'}` : 'Basis unavailable';
   const rows = [
     ['Structure', scenario.id === 'secondary' ? '4H bullish · counter-trend' : '4H / 1H bullish', scenario.id === 'secondary' ? 'Context' : 'Aligned', scenario.id === 'secondary' ? 'gold' : 'bullish'],
     ['Liquidity sweep', scenario.id === 'primary' ? 'SSL swept at 2,332.40' : scenario.id === 'secondary' ? 'BSL not swept' : 'Decision zone', scenario.id === 'primary' ? 'Confirmed' : 'Pending', scenario.id === 'primary' ? 'bullish' : 'gold'],
     ['OB evidence', 'Long wick · BOS · displacement/volume', scenario.id === 'wait' ? 'Valid, awaiting trigger' : 'Confirmed', scenario.id === 'wait' ? 'gold' : 'bullish'],
     ['FVG validation', '1H bullish FVG · BOS validated', 'Validated', 'bullish'],
-    ['Spot ↔ futures basis', flowLive ? '+$1.45 GC premium · 420ms lead' : 'Bridge paused', flowLive ? 'Aligned' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
-    ['Price × OI response', flowLive ? 'Up + OI up · new-long proxy' : 'No flow inference', flowLive ? 'Supports' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
-    ['Order flow delta', flowLive ? '+18,420 · buy skew 61/39' : 'Source paused', flowLive ? 'Supports' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
+    ['Spot ↔ futures basis', flowAvailable ? basisText : 'Bridge paused', flowAvailable ? 'Observed' : 'Unavailable', flowAvailable ? 'bullish' : 'gold'],
+    ['Price × OI response', bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'OI observed · participation proxy' : 'OI unavailable', bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'Supports' : 'Unavailable', bridge?.futures.openInterest !== null && bridge?.futures.openInterest !== undefined ? 'bullish' : 'gold'],
+    ['Order flow delta', bridge?.delta !== null && bridge?.delta !== undefined ? `${bridge.delta.toLocaleString()} · tape delta` : 'Delta unavailable', bridge?.delta !== null && bridge?.delta !== undefined ? 'Supports' : 'Unavailable', bridge?.delta !== null && bridge?.delta !== undefined ? 'bullish' : 'gold'],
     ['Session timing', 'London / New York overlap', 'Active', 'bullish'],
     ['News guardrail', 'US ISM Services in 01:28', scenario.id === 'wait' ? 'Conflict' : 'Caution', scenario.id === 'wait' ? 'bearish' : 'gold'],
   ];
@@ -364,6 +368,92 @@ function Watchlist() {
   return <div className="panel watch-panel" data-testid="panel-watchlist"><div className="section-head"><div className="section-title"><Activity /> Recent analysis</div><button className="section-link" data-testid="button-open-watchlist">Open watchlist</button></div><div className="watch-list">{items.map((item) => <button className="watch-item" key={item.symbol} data-testid={`button-watch-${item.symbol}`}><span className="watch-symbol">{item.symbol}</span><span className="watch-price">{item.price}</span><span className={`watch-change ${item.cls}`}>{item.change} today</span></button>)}</div></div>;
 }
 
+type ReplayDecision = {
+  time: string;
+  price: number;
+  event: string;
+  delta: number;
+  oiChange: number;
+  decision: 'BUY' | 'SELL' | 'WAIT';
+  confidence: number;
+  result: 'WIN' | 'LOSS' | 'NO TRADE';
+  r: number;
+  evidence: string;
+};
+
+const replayTape: ReplayDecision[] = [
+  { time: '09:35', price: 2334.2, event: 'Range open', delta: -820, oiChange: -0.2, decision: 'WAIT', confidence: 48, result: 'NO TRADE', r: 0, evidence: 'No displacement after liquidity probe' },
+  { time: '10:10', price: 2332.6, event: 'SSL probe', delta: -1540, oiChange: 0.1, decision: 'WAIT', confidence: 56, result: 'NO TRADE', r: 0, evidence: 'Sweep present; acceptance not confirmed' },
+  { time: '10:45', price: 2336.9, event: 'SSL sweep + BOS', delta: 6420, oiChange: 1.2, decision: 'BUY', confidence: 78, result: 'WIN', r: 2.1, evidence: 'Positive delta and OI expansion after reclaim' },
+  { time: '11:20', price: 2339.4, event: 'FVG delivery', delta: 1880, oiChange: 0.4, decision: 'WAIT', confidence: 62, result: 'NO TRADE', r: 0, evidence: 'Price extended; no clean re-entry' },
+  { time: '12:05', price: 2346.1, event: 'BSL tag', delta: 2140, oiChange: -0.8, decision: 'SELL', confidence: 59, result: 'LOSS', r: -1, evidence: 'OI contraction invalidated fade; buyers accepted above BSL' },
+  { time: '13:10', price: 2341.8, event: 'Bearish rejection', delta: -4620, oiChange: -1.1, decision: 'SELL', confidence: 67, result: 'WIN', r: 1.6, evidence: 'Negative delta with falling OI after failed BSL acceptance' },
+  { time: '14:20', price: 2337.4, event: 'London low retest', delta: 920, oiChange: 0.3, decision: 'WAIT', confidence: 54, result: 'NO TRADE', r: 0, evidence: 'Compression; no asymmetry around the zone' },
+  { time: '15:05', price: 2332.8, event: 'SSL sweep + impulse', delta: 5140, oiChange: 0.9, decision: 'BUY', confidence: 74, result: 'WIN', r: 1.9, evidence: 'Sweep reclaimed with aggressive buying and new OI' },
+  { time: '15:40', price: 2344.7, event: 'BSL absorption test', delta: 3880, oiChange: -0.5, decision: 'BUY', confidence: 63, result: 'LOSS', r: -1, evidence: 'Aggressive buys met passive offer; no acceptance' },
+];
+
+function ReplayPanel() {
+  const [cursor, setCursor] = useState(replayTape.length);
+  const [running, setRunning] = useState(false);
+  const visibleTape = replayTape.slice(0, cursor);
+  const stats = useMemo(() => {
+    const trades = visibleTape.filter((item) => item.result !== 'NO TRADE');
+    const wins = trades.filter((item) => item.result === 'WIN').length;
+    let equity = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    for (const trade of trades) {
+      equity += trade.r;
+      peak = Math.max(peak, equity);
+      maxDrawdown = Math.max(maxDrawdown, peak - equity);
+    }
+    const hitRate = trades.length ? (wins / trades.length) * 100 : 0;
+    const averageConfidence = trades.length ? trades.reduce((sum, item) => sum + item.confidence, 0) / trades.length : 0;
+    return {
+      decisions: visibleTape.length,
+      trades: trades.length,
+      hitRate,
+      totalR: equity,
+      averageR: trades.length ? equity / trades.length : 0,
+      maxDrawdown,
+      confidenceGap: Math.abs(averageConfidence - hitRate),
+    };
+  }, [visibleTape]);
+
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setCursor((value) => Math.min(value + 1, replayTape.length)), 520);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  useEffect(() => {
+    if (cursor >= replayTape.length) setRunning(false);
+  }, [cursor]);
+
+  const current = visibleTape.at(-1);
+  return <section className="replay-section" data-testid="section-replay-lab">
+    <div className="section-head replay-heading">
+      <div><div className="section-title"><RefreshCw /> Causal replay lab</div><p>Every decision only sees data printed before its timestamp.</p></div>
+      <div className="replay-actions"><button className="section-link" onClick={() => { setCursor(0); setRunning(false); }} data-testid="button-reset-replay">Reset</button><button className="refresh-btn" onClick={() => setRunning((value) => !value)} data-testid="button-play-replay">{running ? 'Pause replay' : cursor >= replayTape.length ? 'Replay again' : 'Play replay'}</button></div>
+    </div>
+    <div className="replay-controls"><span>Session tape</span><input aria-label="Replay position" type="range" min="0" max={replayTape.length} value={cursor} onChange={(event) => { setRunning(false); setCursor(Number(event.target.value)); }} data-testid="input-replay-position" /><strong>{cursor} / {replayTape.length}</strong></div>
+    <div className="replay-stats">
+      <div><span>Decisions</span><strong>{stats.decisions}</strong><small>BUY / SELL / WAIT</small></div>
+      <div><span>Observed hit rate</span><strong className={stats.hitRate >= 50 ? 'bullish' : 'bearish'}>{stats.trades ? `${stats.hitRate.toFixed(0)}%` : '—'}</strong><small>{stats.trades} resolved trades</small></div>
+      <div><span>Expectancy</span><strong className={stats.averageR >= 0 ? 'bullish' : 'bearish'}>{stats.trades ? `${stats.averageR >= 0 ? '+' : ''}${stats.averageR.toFixed(2)}R` : '—'}</strong><small>after simulated costs</small></div>
+      <div><span>Max drawdown</span><strong className="gold">{stats.trades ? `${stats.maxDrawdown.toFixed(2)}R` : '—'}</strong><small>peak-to-trough</small></div>
+      <div><span>Confidence gap</span><strong className={stats.confidenceGap <= 12 ? 'bullish' : 'gold'}>{stats.trades ? `${stats.confidenceGap.toFixed(0)} pts` : '—'}</strong><small>score vs hit rate</small></div>
+    </div>
+    <div className="replay-current">{current ? <><span className="read-label">Current replay state</span><strong>{current.time} · {current.event} · {current.price.toFixed(2)}</strong><span className={`replay-decision ${current.decision.toLowerCase()}`}>{current.decision}</span><p>{current.evidence}</p></> : <><span className="read-label">Current replay state</span><strong>Session reset</strong><p>Move the cursor or play the tape to expose decisions causally.</p></>}</div>
+    <div className="replay-table" role="table" aria-label="Replay decisions">
+      <div className="replay-row replay-table-head" role="row"><span>Time</span><span>Event</span><span>Delta / OI</span><span>Decision</span><span>Result</span><span>R</span></div>
+      {visibleTape.map((item) => <div className="replay-row" key={item.time} role="row"><span>{item.time}</span><span>{item.event}</span><span>{item.delta >= 0 ? '+' : ''}{item.delta.toLocaleString()} / {item.oiChange >= 0 ? '+' : ''}{item.oiChange.toFixed(1)}%</span><strong className={`replay-decision ${item.decision.toLowerCase()}`}>{item.decision}</strong><span className={item.result === 'WIN' ? 'bullish' : item.result === 'LOSS' ? 'bearish' : 'gold'}>{item.result}</span><span className={item.r > 0 ? 'bullish' : item.r < 0 ? 'bearish' : ''}>{item.r > 0 ? '+' : ''}{item.r.toFixed(1)}R</span></div>)}
+    </div>
+    <div className="replay-footnote"><span>Measurement boundary</span><span>Results are fixture-session evidence, not a live win-rate claim. Add exchange-grade history before using calibration for capital decisions.</span></div>
+  </section>;
+}
+
 function Home() {
   const [active, setActive] = useState('Overview');
   const [live, setLive] = useState(true);
@@ -374,6 +464,8 @@ function Home() {
   const [direction, setDirection] = useState('WAIT');
   const [scenarioId, setScenarioId] = useState('wait');
   const [flowLive, setFlowLive] = useState(true);
+  const bridgeQuery = useGetMarketBridge({ range: '1d', interval: '5m' }, { query: { queryKey: ['market-bridge', '1d', '5m'], enabled: live && flowLive, refetchInterval: 60000, refetchOnWindowFocus: false, retry: 1 } });
+  const bridge = live && flowLive ? bridgeQuery.data : undefined;
   const refresh = () => { setRefreshing(true); window.setTimeout(() => { setRefreshing(false); setUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' UTC'); }, 650); };
   const contextText = useMemo(() => direction === 'WAIT' ? 'Awaiting displacement' : `${direction} scenario staged`, [direction]);
   const selectScenario = (id: string) => {
@@ -387,11 +479,12 @@ function Home() {
   };
   return <div className="app-shell"><Sidebar active={active} onNavigate={setActive} /><main className="main"><Header live={live} onToggle={() => setLive((value) => !value)} onRefresh={refresh} refreshing={refreshing} /><div className="content">
     <div className="page-heading"><div><p className="eyebrow">Institutional price action · {contextText}</p><h1>Gold command center</h1><p className="page-note">Read the draw on liquidity. Confirm displacement. Size the risk.</p></div><div className="timestamp"><span data-testid="text-last-updated">Last analysis {updated}</span><button className={`refresh-btn ${refreshing ? 'spinning' : ''}`} onClick={refresh} data-testid="button-refresh-analysis"><RefreshCw size={13} /> Refresh analysis</button></div></div>
-    <SnapshotGrid />
+     <SnapshotGrid bridge={bridge} />
     <div className="workspace"><div><MarketChart timeframe={timeframe} setTimeframe={setTimeframe} tab={tab} setTab={setTab} /><div className="detail-grid"><BiasPanel /><ZonesPanel /></div></div><div className="side-stack"><Recommendation direction={direction} onDirection={setPlanDirection} /><LevelsPanel /><Guardrails /></div></div>
-    <div className="intel-grid"><InstitutionalFlow live={flowLive} onToggle={() => setFlowLive((value) => !value)} /><SweepDetector /></div>
+     <div className="intel-grid"><InstitutionalFlow live={flowLive} onToggle={() => setFlowLive((value) => !value)} bridge={bridge} loading={bridgeQuery.isLoading} failed={bridgeQuery.isError} /><SweepDetector /></div>
     <ScenarioSection selected={scenarioId} onSelect={selectScenario} />
-    <UnifiedConfluence scenarioId={scenarioId} flowLive={flowLive} />
+     <UnifiedConfluence scenarioId={scenarioId} flowLive={flowLive} bridge={bridge} />
+     <ReplayPanel />
     <div className="bottom-strip"><RiskPanel /><Watchlist /></div>
     <div className="disclaimer"><CircleHelp /><span><strong>Analysis aid, not financial advice.</strong> Market conditions change quickly; levels are scenarios, not promises. No accuracy rate is guaranteed, including 95% or any other figure. Validate your own plan before risking capital.</span></div>
   </div></main></div>;

@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   Bell,
   BookOpen,
@@ -226,13 +227,76 @@ function BiasPanel() {
 
 function InstitutionalFlow({ live, onToggle }: { live: boolean; onToggle: () => void }) {
   const flow = live
-    ? [{ label: 'Cumulative delta', value: '+18,420', detail: 'buyers in control', tone: 'bullish' }, { label: 'Buy / sell imbalance', value: '61 / 39', detail: '+22% buy skew', tone: 'bullish' }, { label: 'Open interest', value: '482.6k', detail: '+1.8% session', tone: 'gold' }, { label: 'Contract volume', value: '186.4k', detail: 'rolling 4H', tone: 'gold' }]
-    : [{ label: 'Cumulative delta', value: '—', detail: 'source paused', tone: '' }, { label: 'Buy / sell imbalance', value: '—', detail: 'source paused', tone: '' }, { label: 'Open interest', value: '—', detail: 'source paused', tone: '' }, { label: 'Contract volume', value: '—', detail: 'source paused', tone: '' }];
-  return <div className="panel flow-panel" data-testid="panel-institutional-flow">
-    <div className="section-head"><div><div className="section-title"><Activity /> Institutional flow</div><div className="panel-kicker flow-subtitle">Futures liquidity proxy · market feed sample</div></div><button className={`flow-source ${live ? 'active' : ''}`} onClick={onToggle} data-testid="button-toggle-flow-source"><span className="source-dot" />{live ? 'Proxy active' : 'Proxy paused'}</button></div>
-    <div className="flow-metrics">{flow.map((item) => <div className="flow-metric" key={item.label}><span>{item.label}</span><strong className={item.tone}>{item.value}</strong><small>{item.detail}</small></div>)}</div>
-    <div className="flow-read"><span className="read-label">Order-flow read</span><p>{live ? 'Positive delta is expanding with a buy-side imbalance; participation supports the bullish 4H draw, but the 5m retracement still needs displacement.' : 'Order-flow source is paused. Treat structure and liquidity levels as context only until the sample is restored.'}</p><span className={`read-state ${live ? 'bullish' : 'gold'}`}>{live ? 'Constructive' : 'Awaiting source'}</span></div>
-    <div className="proxy-note"><Database size={12} /> Proxy / sample values are deterministic and not exchange-certified.</div>
+    ? {
+        spot: '2,341.65',
+        futures: '2,343.10',
+        basis: '+1.45',
+        leadLag: 'GC leads spot · 420ms',
+        delta: '+18,420',
+        imbalance: '61 / 39',
+        openInterest: '482.6k',
+        volume: '186.4k',
+        priceOi: 'Up + OI up',
+        absorption: 'Offers at 2,347.90',
+      }
+    : {
+        spot: '2,341.65',
+        futures: '—',
+        basis: '—',
+        leadLag: 'Bridge paused',
+        delta: '—',
+        imbalance: '—',
+        openInterest: '—',
+        volume: '—',
+        priceOi: 'Unavailable',
+        absorption: 'Unavailable',
+      };
+
+  return <div className="panel flow-panel physics-panel" data-testid="panel-institutional-flow">
+    <div className="section-head">
+      <div>
+        <div className="section-title"><Activity /> Data physics bridge</div>
+        <div className="panel-kicker flow-subtitle">Observable flow · Spot XAUUSD ↔ COMEX GC</div>
+      </div>
+      <button className={`flow-source ${live ? 'active' : ''}`} onClick={onToggle} data-testid="button-toggle-flow-source"><span className="source-dot" />{live ? 'Bridge active' : 'Bridge paused'}</button>
+    </div>
+
+    <div className="market-bridge">
+      <div className="market-node">
+        <span>Spot XAUUSD</span>
+        <strong>{flow.spot}</strong>
+        <small>execution reference</small>
+      </div>
+      <ArrowRight className="bridge-arrow" />
+      <div className="market-node futures-node">
+        <span>COMEX GC</span>
+        <strong>{flow.futures}</strong>
+        <small>centralized futures</small>
+      </div>
+      <div className="basis-box">
+        <span>Basis</span>
+        <strong className={live ? 'gold' : ''}>{live ? `+$${flow.basis}` : flow.basis}</strong>
+        <small>{live ? 'futures premium' : 'awaiting bridge'}</small>
+      </div>
+    </div>
+
+    <div className="flow-metrics physics-metrics">
+      {[
+        { label: 'Cumulative delta', value: flow.delta, detail: live ? 'aggressive buyers' : 'source paused', tone: live ? 'bullish' : '' },
+        { label: 'Buy / sell imbalance', value: flow.imbalance, detail: live ? '+22% buy skew' : 'source paused', tone: live ? 'bullish' : '' },
+        { label: 'Open interest', value: flow.openInterest, detail: live ? '+1.8% session' : 'source paused', tone: live ? 'gold' : '' },
+        { label: 'Contract volume', value: flow.volume, detail: live ? 'rolling 4H' : 'source paused', tone: live ? 'gold' : '' },
+      ].map((item) => <div className="flow-metric" key={item.label}><span>{item.label}</span><strong className={item.tone}>{item.value}</strong><small>{item.detail}</small></div>)}
+    </div>
+
+    <div className="physics-signals">
+      <div><span>Price × OI response</span><strong className={live ? 'bullish' : 'gold'}>{flow.priceOi}</strong><small>{live ? 'new long participation proxy' : 'cannot infer participation'}</small></div>
+      <div><span>Absorption / liquidity</span><strong className={live ? 'gold' : ''}>{flow.absorption}</strong><small>{live ? 'passive offer remains above price' : 'no live order-flow read'}</small></div>
+      <div><span>Lead / lag</span><strong className={live ? 'bullish' : 'gold'}>{flow.leadLag}</strong><small>{live ? 'futures impulse is leading' : 'bridge is not measuring lead-lag'}</small></div>
+    </div>
+
+    <div className="flow-read physics-read"><span className="read-label">Portfolio behavior proxy</span><p>{live ? 'GC trades at a premium to spot while positive delta and rising open interest arrive together. The model reads this as new-long participation and bullish pressure, not proof of a specific bank position.' : 'The Spot ↔ Futures bridge is paused. Do not infer institutional participation from candles alone; restore the feed before upgrading a scenario.'}</p><span className={`read-state ${live ? 'bullish' : 'gold'}`}>{live ? 'Constructive' : 'Unavailable'}</span></div>
+    <div className="source-strip"><span><Database size={12} /> Spot feed <b className={live ? 'bullish' : 'gold'}>{live ? 'fresh' : 'stale'}</b></span><span>COMEX GC <b className={live ? 'bullish' : 'gold'}>{live ? 'fresh' : 'paused'}</b></span><span>COT <b className="gold">weekly context</b></span><span>Not a direct view of bank books.</span></div>
   </div>;
 }
 
@@ -268,6 +332,8 @@ function UnifiedConfluence({ scenarioId, flowLive }: { scenarioId: string; flowL
     ['Liquidity sweep', scenario.id === 'primary' ? 'SSL swept at 2,332.40' : scenario.id === 'secondary' ? 'BSL not swept' : 'Decision zone', scenario.id === 'primary' ? 'Confirmed' : 'Pending', scenario.id === 'primary' ? 'bullish' : 'gold'],
     ['OB evidence', 'Long wick · BOS · displacement/volume', scenario.id === 'wait' ? 'Valid, awaiting trigger' : 'Confirmed', scenario.id === 'wait' ? 'gold' : 'bullish'],
     ['FVG validation', '1H bullish FVG · BOS validated', 'Validated', 'bullish'],
+    ['Spot ↔ futures basis', flowLive ? '+$1.45 GC premium · 420ms lead' : 'Bridge paused', flowLive ? 'Aligned' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
+    ['Price × OI response', flowLive ? 'Up + OI up · new-long proxy' : 'No flow inference', flowLive ? 'Supports' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
     ['Order flow delta', flowLive ? '+18,420 · buy skew 61/39' : 'Source paused', flowLive ? 'Supports' : 'Unavailable', flowLive ? 'bullish' : 'gold'],
     ['Session timing', 'London / New York overlap', 'Active', 'bullish'],
     ['News guardrail', 'US ISM Services in 01:28', scenario.id === 'wait' ? 'Conflict' : 'Caution', scenario.id === 'wait' ? 'bearish' : 'gold'],

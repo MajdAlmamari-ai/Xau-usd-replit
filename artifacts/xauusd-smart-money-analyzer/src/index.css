@@ -239,6 +239,26 @@ h1 { font-size: clamp(22px, 2.3vw, 31px); line-height: 1; letter-spacing: -.05em
 .intel-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-top: 10px; }
 .flow-panel, .sweep-panel { padding: 16px; }
 .flow-subtitle { margin-top: 5px; letter-spacing: .04em; text-transform: none; }
+.market-bridge { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: stretch; gap: 8px; margin-top: 13px; }
+.market-node, .basis-box { min-width: 0; padding: 10px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--secondary) / .48); }
+.market-node span, .basis-box span { display: block; color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.market-node strong, .basis-box strong { display: block; font-family: var(--app-font-mono); font-size: 16px; margin-top: 8px; }
+.market-node small, .basis-box small { display: block; color: hsl(var(--muted-foreground)); font-size: 9px; margin-top: 4px; }
+.futures-node { border-color: hsl(var(--primary) / .32); background: hsl(var(--primary) / .05); }
+.bridge-arrow { align-self: center; width: 16px; color: hsl(var(--primary)); }
+.basis-box { border-color: hsl(var(--primary) / .28); background: hsl(var(--primary) / .07); }
+.physics-metrics { margin-top: 9px; }
+.physics-signals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
+.physics-signals > div { min-width: 0; padding: 9px; border: 1px solid hsl(var(--border)); border-radius: 5px; background: hsl(var(--background) / .3); }
+.physics-signals span { display: block; color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; text-transform: uppercase; }
+.physics-signals strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin-top: 7px; }
+.physics-signals small { display: block; color: hsl(var(--muted-foreground)); font-size: 9px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.physics-read { padding-top: 12px; }
+.source-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid hsl(var(--border)); margin-top: 8px; padding-top: 9px; color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: 8px; }
+.source-strip span { display: inline-flex; align-items: center; gap: 4px; }
+.source-strip svg { color: hsl(var(--primary)); }
+.source-strip span:last-child { margin-left: auto; color: hsl(var(--muted-foreground)); }
+.source-strip b { font-weight: 400; text-transform: uppercase; }
 .flow-source { display: inline-flex; align-items: center; gap: 6px; color: hsl(var(--muted-foreground)); background: hsl(var(--secondary)); border: 1px solid hsl(var(--border)); border-radius: 5px; padding: 6px 8px; font-family: var(--app-font-mono); font-size: 8px; text-transform: uppercase; }
 .flow-source:hover { color: hsl(var(--foreground)); border-color: hsl(var(--primary) / .5); }
 .flow-source.active { color: hsl(var(--accent)); border-color: hsl(var(--accent) / .3); }
@@ -321,6 +341,10 @@ h1 { font-size: clamp(22px, 2.3vw, 31px); line-height: 1; letter-spacing: -.05em
   .intel-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
+  .market-bridge { grid-template-columns: 1fr auto 1fr; }
+  .basis-box { grid-column: 1 / -1; }
+  .physics-signals { grid-template-columns: 1fr; }
+  .source-strip span:last-child { margin-left: 0; width: 100%; }
   .flow-metrics { grid-template-columns: repeat(2, 1fr); }
   .flow-metric:nth-child(2) { border-right: 0; }
   .flow-metric:nth-child(n+3) { border-top: 1px solid hsl(var(--border)); }
